@@ -81,6 +81,7 @@ export function SupabaseSyncModal({ isOpen, onClose }: SupabaseSyncModalProps) {
     disconnectSupabase, 
     uploadLocalToCloud, 
     manualCloudSync, 
+    recoverLocalAthletes,
     showToast 
   } = useAthletes();
 
@@ -91,6 +92,7 @@ export function SupabaseSyncModal({ isOpen, onClose }: SupabaseSyncModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlGuide, setShowSqlGuide] = useState(false);
 
@@ -153,6 +155,15 @@ export function SupabaseSyncModal({ isOpen, onClose }: SupabaseSyncModalProps) {
     setIsPulling(true);
     await manualCloudSync();
     setIsPulling(false);
+  };
+
+  const handleRecoverData = async () => {
+    setIsRecovering(true);
+    const count = await recoverLocalAthletes();
+    setIsRecovering(false);
+    if (count > 0) {
+      onClose();
+    }
   };
 
   const copySqlToClipboard = async () => {
@@ -410,6 +421,28 @@ export function SupabaseSyncModal({ isOpen, onClose }: SupabaseSyncModalProps) {
                 <span>{isUploading ? 'جاري الرفع...' : 'رفع كل اللاعبين للسحابة'}</span>
               </button>
             </div>
+
+            {/* Local Storage Deep Recovery */}
+            <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-amber-300 block">
+                  استرجاع وفحص بيانات المتصفح السابقة (Data Recovery)
+                </span>
+                <span className="text-[11px] text-slate-400 block">
+                  يفحص ذاكرة المتصفح (LocalStorage) لاستعادة أي لاعبين أو اختبارات مسجلة سابقاً على هذا الجهاز
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRecoverData}
+                disabled={isRecovering}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRecovering ? 'animate-spin' : ''}`} />
+                <span>{isRecovering ? 'جاري الفحص...' : 'فحص واسترجاع اللاعبين'}</span>
+              </button>
+            </div>
+
           </div>
         )}
 

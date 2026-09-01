@@ -47,6 +47,7 @@ interface AthleteContextType {
   disconnectSupabase: () => void;
   uploadLocalToCloud: () => Promise<void>;
   manualCloudSync: () => Promise<void>;
+  recoverLocalAthletes: () => Promise<number>;
 }
 
 const AthleteContext = createContext<AthleteContextType | undefined>(undefined);
@@ -145,14 +146,30 @@ export const AthleteProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (!isMounted) return;
 
         if (cloudAthletes && cloudAthletes.length > 0) {
-          setAthletes(cloudAthletes);
+          // SMART MERGE: Never overwrite local athletes! Merge cloud with existing local additions
+          setAthletes((prev) => {
+            const map = new Map<string, MockAthleteProfile>();
+            
+            // 1. First add local athletes
+            prev.forEach(a => map.set(a.id, a));
+            
+            // 2. Add or update with cloud athletes
+            cloudAthletes.forEach(a => map.set(a.id, a));
+            
+            const merged = Array.from(map.values());
+            
+            // 3. If any local athlete is missing from cloud, push it to cloud automatically
+            prev.forEach(a => {
+              if (!cloudAthletes.some(ca => ca.id === a.id)) {
+                upsertAthleteToCloud(a).catch(console.error);
+              }
+            });
+            
+            return merged;
+          });
+
           setLastSyncedAt(new Date());
           setSyncStatus('connected');
-
-          // Ensure selected athlete still exists
-          if (!cloudAthletes.some(a => a.id === selectedAthleteId)) {
-            setSelectedAthleteIdState(cloudAthletes[0].id);
-          }
         } else {
           // Cloud table is empty: automatically seed existing athletes to cloud
           const localSaved = localStorage.getItem(STORAGE_KEY_ATHLETES);
@@ -286,6 +303,65 @@ export const AthleteProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSyncStatus('error');
       showToast('تعذر جلب البيانات من السحابة // Pull Error', 'error');
     }
+  };
+
+  // Recover any athletes from all local browser storage keys or historical backups
+  const recoverLocalAthletes = async (): Promise<number> => {
+    let recoveredCount = 0;
+    try {
+      const allFound: MockAthleteProfile[] = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          if (raw.includes('tests') || raw.includes('manual1RMMap') || raw.includes('bodyWeightKg')) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((item: any) => {
+                if (item && item.id && item.name && typeof item.bodyWeightKg === 'number') {
+                  allFound.push(item);
+                }
+              });
+            } else if (parsed && parsed.id && parsed.name && typeof parsed.bodyWeightKg === 'number') {
+              allFound.push(parsed);
+            }
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+
+      if (allFound.length > 0) {
+        setAthletes((prev) => {
+          const map = new Map<string, MockAthleteProfile>();
+          prev.forEach((a) => map.set(a.id, a));
+          allFound.forEach((a) => {
+            if (!map.has(a.id)) {
+              map.set(a.id, a);
+              recoveredCount++;
+            }
+          });
+          const combined = Array.from(map.values());
+          if (supabaseConfig.isConfigured) {
+            syncAllAthletesToCloud(combined).catch(console.error);
+          }
+          return combined;
+        });
+      }
+    } catch (e) {
+      console.error('Local recovery scan error:', e);
+    }
+
+    if (recoveredCount > 0) {
+      showToast(`تم استرجاع ${recoveredCount} لاعب بنجاح ورفعهم للسحابة! // Recovered ${recoveredCount} Athletes`, 'success');
+    } else {
+      showToast('لم يتم العثور على لاعبين إضافيين في ذاكرة المتصفح // No extra records found', 'info');
+    }
+
+    return recoveredCount;
   };
 
   // CRUD Operations with Optimistic Local UI + Async Cloud Upsert
@@ -523,6 +599,7 @@ export const AthleteProvider: React.FC<{ children: React.ReactNode }> = ({ child
         disconnectSupabase,
         uploadLocalToCloud,
         manualCloudSync,
+        recoverLocalAthletes,
       }}
     >
       {children}
