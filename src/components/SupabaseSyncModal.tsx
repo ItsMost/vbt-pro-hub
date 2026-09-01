@@ -318,13 +318,36 @@ export function SupabaseSyncModal({ isOpen, onClose }: SupabaseSyncModalProps) {
 
           {/* Test Connection Message */}
           {testResult && (
-            <div className={`p-3 rounded-xl border text-xs font-mono flex items-center gap-2.5 ${
+            <div className={`p-3.5 rounded-xl border text-xs font-mono flex flex-col gap-2 ${
               testResult.success 
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
                 : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
             }`}>
-              {testResult.success ? <CloudCheck className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-              <span>{testResult.message}</span>
+              <div className="flex items-center gap-2.5">
+                {testResult.success ? <CloudCheck className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />}
+                <span className="font-bold">{testResult.message}</span>
+              </div>
+              {!testResult.success && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rose-500/20">
+                  <a
+                    href={`https://supabase.com/dashboard/project/${urlInput.replace('https://', '').split('.')[0] || 'koakdlbwsjekmtiunfhr'}/sql/new`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-white font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    <span>فتح SQL Editor في Supabase</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={copySqlToClipboard}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition-all"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>نسخ كود الـ SQL</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

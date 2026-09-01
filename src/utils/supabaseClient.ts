@@ -124,6 +124,12 @@ export async function testSupabaseConnection(customUrl?: string, customKey?: str
       .limit(1);
 
     if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('vbt_athletes')) {
+        return { 
+          success: false, 
+          error: 'الجدول (vbt_athletes) غير منشأ في Supabase بعد. يرجى تشغيل كود الـ SQL في صفحة SQL Editor على Supabase.' 
+        };
+      }
       return { success: false, error: `${error.message} (${error.code || ''})` };
     }
 
